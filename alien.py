@@ -17,7 +17,7 @@ class Alien(Sprite):
         self.rect.x = self.rect.width
         self.rect.y = self.rect.height
 
-        
+        # self.rect是一個pygame中的Rect對象，代表 alien 矩形範圍。
         self.x = float(self.rect.x)
 
 
