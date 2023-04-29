@@ -1,5 +1,6 @@
 import sys
 import pygame as pg
+import random
 
 from settings import Settings
 from player import Player
@@ -28,7 +29,7 @@ class AlienInvasion:
         self.player = Player(self)
         self.bullets = pg.sprite.Group()                # 建立子彈編組
         self.aliens = pg.sprite.Group()                 # 建立外星人編組
-        
+        self.alien_fleet = []
         self._create_fleet()
         
         
@@ -43,6 +44,7 @@ class AlienInvasion:
             
             self._update_screen()
             # self.clock.tick(60)
+            self._update_aliens()
     
     def _check_events(self):                      # Respond to keypresses and mouse events.
         for event in pg.event.get():              # 當用戶關閉視窗時，程式會呼叫sys.exit()函數終止遊戲
@@ -82,23 +84,49 @@ class AlienInvasion:
         elif event.key == pg.K_DOWN:
             self.player.moving_down = False            
     
-    def _create_fleet(self):                      # 建立外星人實例
-        alien = Alien(self)                       # 建立外星人，不算在aliens編組中
-        alien_width = alien.rect.width            # 透過rect獲得外星人寬度
-        available_space_x = self.settings.screen_width - (2 * alien_width)     # 記算螢幕水平空間與外星人數量的關係（螢幕寬度-兩個外星人寬度）
-        number_aliens_x = available_space_x //(2 * alien_width)                # 設定一列可以放置多少外星人（整數除法//）        
-        for alien_number in range(number_aliens_x):                 # 建立迴圈，製造外星人
-            self._create_alien(alien_number)
-            
-    def _create_alien(self, alien_number):                          # 建立_create_alien，設定x座標值放置在一列中
+    def _create_fleet(self):                                                 # 建立外星人實例
+        alien = Alien(self)                                                  # 建立外星人，不算在aliens編組中
+        alien_width, alien_height = alien.rect.size                          # 透過rect獲得外星人寬度與高度
+        
+        # 計算可用空間
+        available_space_x = self.settings.screen_width - (1* alien_width)   # 記算螢幕水平空間與外星人數量的關係（螢幕寬度-兩個外星人寬度）
+        number_aliens_x = available_space_x //(1 * alien_width)              # 設定一列可以放置多少外星人（整數除法//）        
+        
+        player_height = self.player.rect.height                              # 獲得玩家角色的高度
+        
+        # 計算可以放多少個外星人
+        available_space_y = (self.settings.screen_height - (3 * alien_height) - player_height) # 計算可用垂直空間與外星人數量的關係（螢幕高度-3個外星人高度-玩家高度）
+        number_rows = available_space_y //(2 * alien_height)                 # 設定可放置多少列外星人（整數除法//）
+
+        for row_number in range(number_rows):                                # 建立迴圈，製造外星人
+            for alien_number in range(number_aliens_x):                         
+                self._create_alien(alien_number,row_number)
+
+
+    def _create_alien(self, alien_number, row_number):                          # 建立_create_alien，設定x座標值放置在一列中
         alien = Alien(self)
-        alien_width = alien.rect.width
-        alien.x = alien_width + 2 * alien_width * alien_number      # 每個外星人都從左側向右，間隔一個外星人的寬度放置，外星人佔據空間爲兩倍外星人寬度
-        alien.rect.x = alien.x        
+        alien_width, alien_height = alien.rect.size
+        alien.rect.x = alien_width + 2 * alien_width * alien_number             # 每個外星人都從左側向右，間隔一個外星人的寬度放置，外星人佔據空間爲兩倍外星人寬度       
+        alien.rect.y = alien.rect.height + 2 * alien.rect.height * row_number   # 外星人的y座標放在一列中，上下間隔爲外星人高度的兩倍
         self.aliens.add(alien)
-            
-            
-    
+
+    def _check_fleet_edges(self):
+        for alien in self.aliens.sprites():
+            if alien.check_edges():
+                self._check_fleet_direction()
+                self.aliens.remove(alien)        # 刪除已經消失的外星人
+                break
+
+
+    def _check_fleet_direction(self):
+        for alien in self.aliens.sprites():
+            alien.rect.y += self.settings.fleet_drop_speed
+        self.settings.fleet_direction *= -1
+
+    def _update_aliens(self):
+        self._check_fleet_edges()
+        self.aliens.update()
+
     def _fire_bullet(self):
         #if len(self.bullets) < self.settings.bullets_allowed:      # 檢查bullets數量，如果有超過設定數量的子彈在畫面上，則無法發射子彈
         new_bullet = Bullet(self, self.player)
@@ -109,7 +137,10 @@ class AlienInvasion:
         for bullet in self.bullets.copy():        # 刪除已經消失的子彈
             if bullet.rect.bottom <= 0:
                 self.bullets.remove(bullet)
-        
+        collisions = pg.sprite.groupcollide(self.bullets, self.aliens, True, True)  # groupcollide用於檢查子彈與外星人群組中的成員之間是否發生碰撞
+        if not self.aliens:
+            self.bullets.empty()
+            self._create_fleet()
     
     def _update_screen(self):                     # 更新遊戲螢幕狀態
         self.screen.fill(self.settings.bg_color)    
