@@ -1,2 +1,2 @@
 # python-pygame
-復古射擊遊戲小品
+pygame 套件的應用
